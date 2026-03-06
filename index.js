@@ -44,7 +44,7 @@ app.use(cookieParser());
 app.use(
     cors({
         origin: [
-            "http://localhost:3000",
+            "http://localhost:8080",
             "https://friendly-postman-face.lovable.app",
             "https://preview--friendly-postman-face.lovable.app",
             "https://postman-buddy-ui.lovable.app",
