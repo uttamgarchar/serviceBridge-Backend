@@ -66,7 +66,6 @@ export const acceptBooking = async (req, res, next) => {
 export const completeBooking = async (req, res, next) => {
     try {
         const { otp } = req.body;
-
         const booking = await bookingModel.findById(req.params.bookingId);
 
         if (!booking) {
@@ -79,10 +78,7 @@ export const completeBooking = async (req, res, next) => {
             throw new Error("Payment not completed");
         }
 
-        if (booking.status !== "in_progress") {
-            res.status(400);
-            throw new Error("Service not in progress");
-        }
+
 
         if (booking.serviceOtp !== otp) {
             res.status(400);
@@ -168,6 +164,31 @@ export const getProviderBookings = async (req, res, next) => {
         res.json({
             success: true,
             bookings,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+export const startService = async (req, res, next) => {
+    try {
+        const booking = await bookingModel.findById(req.params.bookingId);
+
+        if (!booking) {
+            res.status(404);
+            throw new Error("Booking not found");
+        }
+
+        if (booking.status !== "accepted") {
+            res.status(400);
+            throw new Error("Service cannot be started");
+        }
+
+        booking.status = "in_progress";
+        await booking.save();
+
+        res.json({
+            success: true,
+            message: "Service started successfully",
         });
     } catch (error) {
         next(error);

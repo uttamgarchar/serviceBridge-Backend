@@ -3,7 +3,7 @@ import bookingModel from "../models/bookingModel.js";
 const otpVerified = async (req, res, next) => {
     try {
         const bookingId = req.params.bookingId || req.body.bookingId;
-        const { serviceOtp } = req.body;
+        const { otp } = req.body;
 
         const booking = await bookingModel.findById(bookingId);
 
@@ -12,12 +12,13 @@ const otpVerified = async (req, res, next) => {
             throw new Error("Booking not found");
         }
 
-        if (!serviceOtp) {
+        if (!otp) {
             res.status(400);
             throw new Error("Service OTP is required");
         }
 
-        if (booking.serviceOtp !== serviceOtp) {
+        // ✅ FIXED LINE
+        if (String(booking.serviceOtp) !== String(otp)) {
             res.status(403);
             throw new Error("Invalid service OTP");
         }

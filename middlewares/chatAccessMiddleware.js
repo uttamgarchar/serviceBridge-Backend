@@ -16,10 +16,7 @@ const chatAccessMiddleware = async (req, res, next) => {
             throw new Error("Booking not found");
         }
 
-        if (booking.paymentStatus !== "paid") {
-            res.status(403);
-            throw new Error("Chat allowed only after payment");
-        }
+
 
         if (
             booking.customer.toString() !== req.user._id.toString() &&

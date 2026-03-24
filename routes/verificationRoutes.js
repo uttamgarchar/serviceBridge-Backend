@@ -13,7 +13,7 @@ import {
 const router = express.Router();
 
 router.use(userAuth);
-router.use(allowRoles("VerificationManager"));
+router.use(allowRoles("VerificationManager", "Admin"));
 
 router.get("/pending-providers", getPendingProviders);
 router.get("/provider/:providerId", getProviderDetails);

@@ -41,18 +41,10 @@ app.use(cookieParser());
 
 
 
-app.use(
-    cors({
-        origin: [
-            "http://localhost:8080",
-            "https://friendly-postman-face.lovable.app",
-            "https://preview--friendly-postman-face.lovable.app",
-            "https://postman-buddy-ui.lovable.app",
-            "https://preview--postman-buddy-ui.lovable.app"
-        ],
-        credentials: true
-    })
-);
+app.use(cors({
+    origin: "https://preview--service-bridge-link.lovable.app",
+    credentials: true
+}));
 // Health check
 app.get("/", (req, res) => {
     res.send("API IS WORKING Good");

@@ -22,7 +22,7 @@ const router = express.Router();
  * USER creates booking
  */
 router.post(
-    "/bookings",
+    "/",
     userAuth,
     allowRoles("User"),
     createBooking
@@ -57,7 +57,6 @@ router.put(
     userAuth,
     allowRoles("ServiceProvider"),
     providerApproved,
-    paymentVerified,
     bookingAccess,
     acceptBooking
 );
