@@ -34,7 +34,7 @@ router.post(
 router.get(
     "/user",
     userAuth,
-    allowRoles("User"),
+    allowRoles("User", "verificationManager"),
     getUserBookings
 );
 

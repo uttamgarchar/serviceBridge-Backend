@@ -10,34 +10,11 @@ import {
 
 const router = express.Router();
 
-/* ======================================================
-   CREATE RAZORPAY ORDER (USER)
-====================================================== */
-router.post(
-    "/create-order",
-    userAuth,
-    allowRoles("User"),
-    createRazorpayOrder
-);
+/* USER */
+router.post("/create-order", userAuth, createRazorpayOrder);
+router.post("/verify", userAuth, verifyRazorpayPayment);
 
-/* ======================================================
-   VERIFY RAZORPAY PAYMENT (USER)
-====================================================== */
-router.post(
-    "/verify",
-    userAuth,
-    allowRoles("User"),
-    verifyRazorpayPayment
-);
-
-/* ======================================================
-   REFUND PAYMENT (DEMO)
-   (You can later restrict this to Admin)
-====================================================== */
-router.post(
-    "/refund/:paymentId",
-    userAuth,
-    refundPayment
-);
+/* ADMIN */
+router.put("/refund/:paymentId", userAuth, refundPayment);
 
 export default router;

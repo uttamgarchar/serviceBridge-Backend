@@ -7,7 +7,7 @@ import {
     getProviderDetails,
     approveProvider,
     rejectProvider,
-    providerAnalytics,
+    verificationAnalytics,
 } from "../controllers/verificationManagerController.js";
 
 const router = express.Router();
@@ -19,6 +19,6 @@ router.get("/pending-providers", getPendingProviders);
 router.get("/provider/:providerId", getProviderDetails);
 router.put("/approve/:providerId", approveProvider);
 router.put("/reject/:providerId", rejectProvider);
-router.get("/analytics", providerAnalytics);
+router.get("/analytics", verificationAnalytics);
 
 export default router;

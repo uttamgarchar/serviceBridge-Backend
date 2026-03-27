@@ -2,213 +2,370 @@ import userModel from "../models/userModel.js";
 import bookingModel from "../models/bookingModel.js";
 import paymentModel from "../models/paymentModel.js";
 import withdrawalModel from "../models/withdrawalModel.js";
+import walletModel from "../models/walletModel.js";
+import reviewModel from "../models/reviewModel.js";
+import reportModel from "../models/reportModel.js";
+import providerProfileModel from "../models/providerProfile.js";
+import couponModel from "../models/couponModel.js";
+import serviceModel from "../models/serviceModel.js";
 
 /* ======================================================
-   ADMIN: FULL DASHBOARD ANALYTICS (SINGLE API)
-   Role Required: Admin
+   🧠 ULTRA ADMIN CONTROLLER (ALL-IN-ONE INTELLIGENCE)
 ====================================================== */
 export const getAdminDashboardAnalytics = async (req, res, next) => {
     try {
-        /* =========================
-           BASIC COUNTS
-        ========================= */
-        const totalUsers = await userModel.countDocuments({ role: "User" });
-        const totalProviders = await userModel.countDocuments({
-            role: "ServiceProvider",
-        });
-        const totalBookings = await bookingModel.countDocuments();
+        const now = new Date();
+
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const startOfLastMonth = new Date(
+            now.getFullYear(),
+            now.getMonth() - 1,
+            1
+        );
+
+        const startOfWeek = new Date();
+        startOfWeek.setDate(now.getDate() - 6);
 
         /* =========================
-           BOOKING STATUS ANALYTICS
+           USERS + GROWTH
         ========================= */
-        const bookingStats = {
-            completed: await bookingModel.countDocuments({
-                status: "completed",
+        const [
+            totalUsers,
+            totalProviders,
+            newUsersThisMonth,
+            newUsersLastMonth,
+        ] = await Promise.all([
+            userModel.countDocuments({ role: "User" }),
+            userModel.countDocuments({ role: "ServiceProvider" }),
+            userModel.countDocuments({
+                role: "User",
+                createdAt: { $gte: startOfMonth },
             }),
-            cancelled: await bookingModel.countDocuments({
-                status: "cancelled",
+            userModel.countDocuments({
+                role: "User",
+                createdAt: {
+                    $gte: startOfLastMonth,
+                    $lt: startOfMonth,
+                },
             }),
-            accepted: await bookingModel.countDocuments({
-                status: "accepted",
-            }),
-            pending: await bookingModel.countDocuments({
-                status: "pending",
-            }),
+        ]);
+
+        const userGrowthRate =
+            newUsersLastMonth === 0
+                ? 100
+                : ((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100;
+
+        /* =========================
+           BOOKINGS (FULL ANALYTICS)
+        ========================= */
+        const bookingStats = await bookingModel.aggregate([
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+
+        let stats = {
+            total: 0,
+            completed: 0,
+            cancelled: 0,
+            pending: 0,
+            accepted: 0,
+            in_progress: 0,
         };
 
+        bookingStats.forEach((b) => {
+            stats[b._id] = b.count;
+            stats.total += b.count;
+        });
+
+        const completionRate =
+            stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+
         /* =========================
-           REVENUE ANALYTICS
+           REVENUE + GROWTH
         ========================= */
-        const revenueResult = await paymentModel.aggregate([
+        const revenueAgg = await paymentModel.aggregate([
             { $match: { status: "success" } },
             {
                 $group: {
                     _id: null,
-                    totalRevenue: { $sum: "$amount" },
+                    total: { $sum: "$amount" },
+                    avg: { $avg: "$amount" },
                 },
             },
         ]);
-        const totalRevenue =
-            revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
+
+        const monthlyRevenueAgg = await paymentModel.aggregate([
+            {
+                $match: {
+                    status: "success",
+                    createdAt: { $gte: startOfMonth },
+                },
+            },
+            {
+                $group: { _id: null, total: { $sum: "$amount" } },
+            },
+        ]);
+
+        const lastMonthRevenueAgg = await paymentModel.aggregate([
+            {
+                $match: {
+                    status: "success",
+                    createdAt: {
+                        $gte: startOfLastMonth,
+                        $lt: startOfMonth,
+                    },
+                },
+            },
+            {
+                $group: { _id: null, total: { $sum: "$amount" } },
+            },
+        ]);
+
+        const revenueGrowth =
+            ((monthlyRevenueAgg[0]?.total || 0) -
+                (lastMonthRevenueAgg[0]?.total || 0)) /
+            ((lastMonthRevenueAgg[0]?.total || 1));
 
         /* =========================
-           PROFIT & PAYOUT ANALYTICS
+           CONVERSION FUNNEL
         ========================= */
-        const withdrawalAgg = await withdrawalModel.aggregate([
-            { $match: { status: "approved" } },
+        const usersWithBookings = await bookingModel.distinct("customer");
+
+        const conversionRate =
+            totalUsers > 0
+                ? (usersWithBookings.length / totalUsers) * 100
+                : 0;
+
+        /* =========================
+           TOP SERVICES
+        ========================= */
+        const topServices = await bookingModel.aggregate([
             {
                 $group: {
-                    _id: null,
-                    totalProfit: { $sum: "$commission" },
-                    totalPayouts: { $sum: "$netAmount" },
+                    _id: "$service",
+                    totalBookings: { $sum: 1 },
+                },
+            },
+            { $sort: { totalBookings: -1 } },
+            { $limit: 5 },
+        ]);
+
+        /* =========================
+           CATEGORY DISTRIBUTION
+        ========================= */
+        const categoryStats = await serviceModel.aggregate([
+            {
+                $group: {
+                    _id: "$category",
+                    total: { $sum: 1 },
                 },
             },
         ]);
-
-        const totalProfit =
-            withdrawalAgg.length > 0 ? withdrawalAgg[0].totalProfit : 0;
-
-        const totalPayouts =
-            withdrawalAgg.length > 0 ? withdrawalAgg[0].totalPayouts : 0;
 
         /* =========================
            PROVIDER PERFORMANCE
         ========================= */
-        const providers = await userModel
-            .find({ role: "ServiceProvider" })
-            .select("_id name email");
-
-        const providerPerformance = [];
-
-        for (const provider of providers) {
-            const total = await bookingModel.countDocuments({
-                provider: provider._id,
-            });
-
-            const completed = await bookingModel.countDocuments({
-                provider: provider._id,
-                status: "completed",
-            });
-
-            const cancelled = await bookingModel.countDocuments({
-                provider: provider._id,
-                status: "cancelled",
-            });
-
-            const completionRate =
-                total > 0
-                    ? ((completed / total) * 100).toFixed(2)
-                    : 0;
-
-            providerPerformance.push({
-                providerId: provider._id,
-                name: provider.name,
-                email: provider.email,
-                totalBookings: total,
-                completedBookings: completed,
-                cancelledBookings: cancelled,
-                completionRate: `${completionRate}%`,
-            });
-        }
-
-        /* =========================
-           USER GROWTH ANALYTICS (FEATURE 9)
-        ========================= */
-
-        // Today
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
-
-        const usersToday = await userModel.countDocuments({
-            role: "User",
-            createdAt: { $gte: startOfToday },
-        });
-
-        // This month
-        const startOfMonth = new Date(
-            new Date().getFullYear(),
-            new Date().getMonth(),
-            1
-        );
-
-        const usersThisMonth = await userModel.countDocuments({
-            role: "User",
-            createdAt: { $gte: startOfMonth },
-        });
-
-        // Last 7 days growth
-        const last7DaysGrowth = await userModel.aggregate([
-            {
-                $match: {
-                    role: "User",
-                    createdAt: {
-                        $gte: new Date(
-                            new Date().setDate(new Date().getDate() - 6)
-                        ),
-                    },
-                },
-            },
+        const providerPerformance = await bookingModel.aggregate([
             {
                 $group: {
-                    _id: {
-                        day: { $dayOfMonth: "$createdAt" },
-                        month: { $month: "$createdAt" },
-                        year: { $year: "$createdAt" },
-                    },
-                    count: { $sum: 1 },
-                },
-            },
-            { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
-        ]);
-
-        // Last 6 months growth
-        const last6MonthsGrowth = await userModel.aggregate([
-            {
-                $match: {
-                    role: "User",
-                    createdAt: {
-                        $gte: new Date(
-                            new Date().setMonth(new Date().getMonth() - 5)
-                        ),
+                    _id: "$provider",
+                    totalBookings: { $sum: 1 },
+                    completed: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "completed"] }, 1, 0],
+                        },
                     },
                 },
             },
             {
-                $group: {
-                    _id: {
-                        month: { $month: "$createdAt" },
-                        year: { $year: "$createdAt" },
+                $addFields: {
+                    completionRate: {
+                        $multiply: [
+                            { $divide: ["$completed", "$totalBookings"] },
+                            100,
+                        ],
                     },
-                    count: { $sum: 1 },
                 },
             },
-            { $sort: { "_id.year": 1, "_id.month": 1 } },
+            { $sort: { completionRate: -1 } },
+            { $limit: 5 },
         ]);
 
         /* =========================
-           FINAL RESPONSE (SINGLE JSON)
+           FRAUD DETECTION
         ========================= */
-        res.status(200).json({
+        const suspiciousUsers = await bookingModel.aggregate([
+            {
+                $group: {
+                    _id: "$customer",
+                    totalBookings: { $sum: 1 },
+                },
+            },
+            {
+                $match: {
+                    totalBookings: { $gt: 20 },
+                },
+            },
+        ]);
+
+        /* =========================
+           PAYMENT HEALTH
+        ========================= */
+        const failedPayments = await paymentModel.countDocuments({
+            status: "failed",
+        });
+
+        const refundedPayments = await paymentModel.countDocuments({
+            status: "refunded",
+        });
+
+        /* =========================
+           REVIEWS ANALYTICS
+        ========================= */
+        const reviewStats = await reviewModel.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    avgRating: { $avg: "$rating" },
+                    total: { $sum: 1 },
+                },
+            },
+        ]);
+
+        const lowRatedProviders = await providerProfileModel.find({
+            averageRating: { $lt: 3 },
+        });
+
+        /* =========================
+           REPORTS
+        ========================= */
+        const reportStats = await reportModel.aggregate([
+            {
+                $group: {
+                    _id: "$status",
+                    total: { $sum: 1 },
+                },
+            },
+        ]);
+
+        /* =========================
+           WALLET SYSTEM
+        ========================= */
+        const walletAgg = await walletModel.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalBalance: { $sum: "$balance" },
+                },
+            },
+        ]);
+
+        /* =========================
+           WITHDRAWALS
+        ========================= */
+        const pendingWithdrawals = await withdrawalModel.countDocuments({
+            status: "pending",
+        });
+
+        /* =========================
+           COUPONS
+        ========================= */
+        const expiredCoupons = await couponModel.countDocuments({
+            expiryDate: { $lt: now },
+        });
+
+        /* =========================
+           ALERT ENGINE
+        ========================= */
+        const alerts = [];
+
+        if (stats.cancelled > 30)
+            alerts.push("🚨 High cancellation spike detected");
+
+        if (failedPayments > 20)
+            alerts.push("🚨 Payment failures critical");
+
+        if (suspiciousUsers.length > 0)
+            alerts.push("🚨 Suspicious user activity");
+
+        if (lowRatedProviders.length > 5)
+            alerts.push("⚠️ Many low-rated providers");
+
+        /* =========================
+           FINAL RESPONSE
+        ========================= */
+        res.json({
             success: true,
             dashboard: {
                 users: {
                     totalUsers,
                     totalProviders,
-                    usersToday,
-                    usersThisMonth,
-                    last7DaysGrowth,
-                    last6MonthsGrowth,
+                    growthRate: userGrowthRate,
                 },
+
                 bookings: {
-                    totalBookings,
-                    ...bookingStats,
+                    ...stats,
+                    completionRate,
                 },
-                finance: {
-                    totalRevenue,
-                    totalProfit,
-                    totalPayouts,
+
+                revenue: {
+                    total: revenueAgg[0]?.total || 0,
+                    avgBooking: revenueAgg[0]?.avg || 0,
+                    monthly: monthlyRevenueAgg[0]?.total || 0,
+                    growth: revenueGrowth,
                 },
-                providers: providerPerformance,
+
+                conversion: {
+                    conversionRate,
+                },
+
+                services: {
+                    topServices,
+                    categoryStats,
+                },
+
+                providers: {
+                    providerPerformance,
+                    lowRatedProviders,
+                },
+
+                fraud: {
+                    suspiciousUsers,
+                },
+
+                payments: {
+                    failedPayments,
+                    refundedPayments,
+                },
+
+                reviews: {
+                    avgRating: reviewStats[0]?.avgRating || 0,
+                    total: reviewStats[0]?.total || 0,
+                },
+
+                reports: reportStats,
+
+                wallet: {
+                    totalBalance: walletAgg[0]?.totalBalance || 0,
+                },
+
+                withdrawals: {
+                    pendingWithdrawals,
+                },
+
+                coupons: {
+                    expiredCoupons,
+                },
+
+                alerts,
             },
         });
     } catch (error) {

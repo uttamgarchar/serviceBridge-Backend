@@ -101,26 +101,128 @@ export const rejectProvider = async (req, res, next) => {
     }
 };
 
+
+
 /* ======================================================
-   PROVIDER ANALYTICS (COUNTS)
+   ADVANCED PROVIDER VERIFICATION ANALYTICS
 ====================================================== */
-export const providerAnalytics = async (req, res, next) => {
+export const verificationAnalytics = async (req, res, next) => {
     try {
-        const [pending, approved, rejected] = await Promise.all([
-            providerProfileModel.countDocuments({ verificationStatus: "pending" }),
-            providerProfileModel.countDocuments({ verificationStatus: "approved" }),
-            providerProfileModel.countDocuments({ verificationStatus: "rejected" }),
+        const now = new Date();
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
+        const weekStart = new Date();
+        weekStart.setDate(now.getDate() - 7);
+
+        const monthStart = new Date();
+        monthStart.setDate(now.getDate() - 30);
+
+        const [
+            statusCounts,
+            todayCount,
+            weekCount,
+            monthCount,
+            recentProviders,
+            dailyTrend
+        ] = await Promise.all([
+
+            // 🔹 Status Counts (Aggregation)
+            providerProfileModel.aggregate([
+                {
+                    $group: {
+                        _id: "$verificationStatus",
+                        count: { $sum: 1 }
+                    }
+                }
+            ]),
+
+            // 🔹 Today Registrations
+            providerProfileModel.countDocuments({
+                createdAt: { $gte: todayStart }
+            }),
+
+            // 🔹 Last 7 Days
+            providerProfileModel.countDocuments({
+                createdAt: { $gte: weekStart }
+            }),
+
+            // 🔹 Last 30 Days
+            providerProfileModel.countDocuments({
+                createdAt: { $gte: monthStart }
+            }),
+
+            // 🔹 Recent Providers
+            providerProfileModel
+                .find()
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .select("name email verificationStatus createdAt"),
+
+            // 🔹 Daily Trend (Last 7 days)
+            providerProfileModel.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: weekStart }
+                    }
+                },
+                {
+                    $group: {
+                        _id: {
+                            $dateToString: {
+                                format: "%Y-%m-%d",
+                                date: "$createdAt"
+                            }
+                        },
+                        count: { $sum: 1 }
+                    }
+                },
+                { $sort: { _id: 1 } }
+            ])
         ]);
+
+        // 🔹 Convert aggregation to object
+        const counts = {
+            pending: 0,
+            approved: 0,
+            rejected: 0
+        };
+
+        statusCounts.forEach(item => {
+            counts[item._id] = item.count;
+        });
+
+        const total = counts.pending + counts.approved + counts.rejected;
+
+        // 🔹 Rates
+        const approvalRate = total ? ((counts.approved / total) * 100).toFixed(2) : 0;
+        const rejectionRate = total ? ((counts.rejected / total) * 100).toFixed(2) : 0;
 
         res.json({
             success: true,
             analytics: {
-                pending,
-                approved,
-                rejected,
-                total: pending + approved + rejected,
-            },
+                overview: {
+                    ...counts,
+                    total,
+                    approvalRate: `${approvalRate}%`,
+                    rejectionRate: `${rejectionRate}%`
+                },
+
+                growth: {
+                    today: todayCount,
+                    last7Days: weekCount,
+                    last30Days: monthCount
+                },
+
+                trends: {
+                    daily: dailyTrend
+                },
+
+                recentActivity: recentProviders
+            }
         });
+
     } catch (error) {
         next(error);
     }

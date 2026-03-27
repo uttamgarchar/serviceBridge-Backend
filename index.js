@@ -23,6 +23,7 @@ import reportRoutes from "./routes/reportRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import adminAnalyticsRoutes from "./routes/adminAnalyticsRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
 
 
 // Error middleware
@@ -35,14 +36,14 @@ const PORT = process.env.PORT || 4000;
 connectDB();
 
 // Global middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
 
 
 app.use(cors({
-    origin: "https://preview--service-bridge-link.lovable.app",
+    origin: 'http://localhost:8080',
     credentials: true
 }));
 // Health check
@@ -57,15 +58,15 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/verification", verificationRoutes);
 app.use("/api/bookings", bookingRoutes);
-app.use("/api/payments", paymentRoutes);
+app.use("/api/payment", paymentRoutes);
 app.use("/api/discovery", serviceDiscoveryRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/provider-documents", providerDocumentRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/coupons", couponRoutes);
-app.use("/api/admin/analytics", adminAnalyticsRoutes);
+app.use("/api/admin", adminAnalyticsRoutes);
 app.use("/api/chat", chatRoutes);
-
+app.use("/api/wallet", walletRoutes);
 
 // Error handler (always last)
 app.use(errorMiddleware);

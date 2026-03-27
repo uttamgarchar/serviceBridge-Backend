@@ -13,21 +13,28 @@ const paymentSchema = new mongoose.Schema(
             required: true,
         },
 
+        // ✅ CLEAN ENUM (NO MORE ERRORS)
         paymentMode: {
             type: String,
-            enum: ["UPI", "CARD", "NET_BANKING"],
-            default: "UPI",
+            enum: ["online", "cash"],
+            required: true,
+        },
+
+        paymentGateway: {
+            type: String,
+            enum: ["razorpay"],
         },
 
         status: {
             type: String,
-            enum: ["success", "failed", "refunded"],
-            default: "success",
+            enum: ["pending", "success", "failed", "refunded"],
+            default: "pending",
         },
+
+        razorpayOrderId: String,
+        razorpayPaymentId: String,
     },
     { timestamps: true }
 );
 
-const paymentModel = mongoose.model("Payment", paymentSchema);
-
-export default paymentModel;
+export default mongoose.model("Payment", paymentSchema);

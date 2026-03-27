@@ -7,7 +7,11 @@ import {
     searchUserByEmail,
     assignUserRole,
     getAllProviders,
-    getPlatformStats,
+    getAllBookings,
+    getAllTransactions,
+    getAllWithdrawals,
+    getSettings,
+    updateSettings,
 } from "../controllers/adminController.js";
 import { updateWithdrawalStatus } from "../controllers/withdrawalController.js";
 
@@ -20,7 +24,7 @@ const router = express.Router();
  * Role required: Admin
  */
 router.use(userAuth);
-router.use(allowRoles("Admin"));
+router.use(allowRoles("Admin", "VerificationManager"));
 
 /**
  * USER MANAGEMENT
@@ -40,22 +44,29 @@ router.put("/users/assign-role", assignUserRole);
  */
 
 // Get all providers
-router.get("/providers", getAllProviders);
+router.get("/providers", allowRoles("VerificationManager", "Admin"), getAllProviders);
 
 /**
  * DASHBOARD / STATS
  */
 
-// Platform stats
-router.get("/stats", getPlatformStats);
-
 // update with draw status 
 router.put(
     "/withdraw/:id",
     userAuth,
-    allowRoles("Admin"),
     updateWithdrawalStatus
 );
-
-
 export default router;
+
+//booking details
+router.get("/bookings", getAllBookings);
+
+//trasection details
+router.get("/transactions", getAllTransactions);
+
+//withdraw data
+router.get("/withdrawals", getAllWithdrawals);
+
+//settings
+router.get("/settings", getSettings);
+router.put("/settings", updateSettings);

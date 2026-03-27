@@ -7,11 +7,16 @@ import { getAdminDashboardAnalytics } from "../controllers/adminAnalyticsControl
 const router = express.Router();
 
 router.get(
-    "/dashboard/stats",
+    "/stats",
     userAuth,
     allowRoles("Admin"),
     getAdminDashboardAnalytics
 );
-
+router.get(
+    "/analytics/dashboard/stats",
+    userAuth,
+    allowRoles("Admin"),
+    getAdminDashboardAnalytics
+);
 
 export default router;
