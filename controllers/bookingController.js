@@ -1,4 +1,5 @@
 import bookingModel from "../models/bookingModel.js";
+import review from "../models/reviewModel.js";
 
 /**
  * ======================================================
@@ -189,6 +190,38 @@ export const startService = async (req, res, next) => {
         res.json({
             success: true,
             message: "Service started successfully",
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const getMyCompletedBookings = async (req, res, next) => {
+    try {
+        // ✅ FIRST: get bookings
+        const bookings = await bookingModel.find({
+            customer: req.user._id,
+            status: "completed",
+        }).populate("provider", "name");
+
+        // ✅ THEN: get reviewed bookings
+        const reviewedBookings = await review.find({
+            customer: req.user._id,
+        }).select("booking");
+
+        const reviewedIds = reviewedBookings.map(r =>
+            r.booking.toString()
+        );
+
+        // ✅ THEN: filter
+        const filteredBookings = bookings.filter(
+            b => !reviewedIds.includes(b._id.toString())
+        );
+
+        res.json({
+            success: true,
+            bookings: filteredBookings,
         });
     } catch (error) {
         next(error);

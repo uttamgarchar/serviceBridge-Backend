@@ -3,7 +3,7 @@ import Booking from "../models/bookingModel.js";
 import ProviderProfile from "../models/providerProfile.js";
 
 /* ======================================================
-   ADD REVIEW (AFTER COMPLETED SERVICE)
+   ADD REVIEW
 ====================================================== */
 export const addReview = async (req, res, next) => {
     try {
@@ -44,7 +44,7 @@ export const addReview = async (req, res, next) => {
             comment,
         });
 
-        // ⭐ Update provider rating permanently
+        // ⭐ Update rating
         const profile = await ProviderProfile.findOne({
             user: booking.provider,
         });
@@ -55,6 +55,7 @@ export const addReview = async (req, res, next) => {
 
             profile.totalReviews += 1;
             profile.averageRating = totalRating / profile.totalReviews;
+
             await profile.save();
         }
 
@@ -69,11 +70,12 @@ export const addReview = async (req, res, next) => {
 };
 
 /* ======================================================
-   DELETE MY REVIEW (FIX RATING)
+   DELETE REVIEW (SAFE FIX)
 ====================================================== */
 export const deleteReview = async (req, res, next) => {
     try {
         const review = await Review.findById(req.params.id);
+
         if (!review) {
             res.status(404);
             throw new Error("Review not found");
@@ -88,12 +90,18 @@ export const deleteReview = async (req, res, next) => {
             user: review.provider,
         });
 
-        if (profile && profile.totalReviews > 1) {
-            const totalRating =
-                profile.averageRating * profile.totalReviews - review.rating;
+        if (profile) {
+            if (profile.totalReviews <= 1) {
+                profile.totalReviews = 0;
+                profile.averageRating = 0;
+            } else {
+                const totalRating =
+                    profile.averageRating * profile.totalReviews - review.rating;
 
-            profile.totalReviews -= 1;
-            profile.averageRating = totalRating / profile.totalReviews;
+                profile.totalReviews -= 1;
+                profile.averageRating = totalRating / profile.totalReviews;
+            }
+
             await profile.save();
         }
 
@@ -109,11 +117,12 @@ export const deleteReview = async (req, res, next) => {
 };
 
 /* ======================================================
-   FLAG REVIEW (ADMIN / MANAGER)
+   FLAG REVIEW
 ====================================================== */
 export const flagReview = async (req, res, next) => {
     try {
         const review = await Review.findById(req.params.id);
+
         if (!review) {
             res.status(404);
             throw new Error("Review not found");
@@ -131,14 +140,21 @@ export const flagReview = async (req, res, next) => {
     }
 };
 
-
+/* ======================================================
+   GET PROVIDER REVIEWS (FIXED)
+====================================================== */
 export const getProviderReviews = async (req, res, next) => {
-    const reviews = await reviewModel.find({
-        provider: req.params.providerId,
-    });
+    try {
+        const reviews = await Review.find({
+            provider: req.params.providerId,
+            isFlagged: false, // hide flagged reviews
+        }).populate("customer", "name");
 
-    res.json({
-        success: true,
-        reviews,
-    });
+        res.json({
+            success: true,
+            reviews,
+        });
+    } catch (error) {
+        next(error);
+    }
 };

@@ -6,29 +6,31 @@ import {
     createReport,
     getMyReports,
     getAllReports,
+    getReportById,
     updateReportStatus,
+    deleteReport,
 } from "../controllers/reportController.js";
 
 const router = express.Router();
 
 /* ======================================================
-   USER / PROVIDER ROUTES
+   USER / SERVICE PROVIDER ROUTES
 ====================================================== */
 
 /**
- * Raise a complaint / report
- * User → Provider
- * Provider → User
+ * Create Report
+ * POST /api/reports
  */
 router.post(
-    "/reports",
+    "/",
     userAuth,
     allowRoles("User", "ServiceProvider"),
     createReport
 );
 
 /**
- * Get my own complaints
+ * Get My Reports
+ * GET /api/reports/my
  */
 router.get(
     "/my",
@@ -37,12 +39,24 @@ router.get(
     getMyReports
 );
 
+/**
+ * Get Single Report
+ * GET /api/reports/:id
+ */
+router.get(
+    "/:id",
+    userAuth,
+    allowRoles("User", "ServiceProvider", "Admin", "ProviderManager"),
+    getReportById
+);
+
 /* ======================================================
    ADMIN / PROVIDER MANAGER ROUTES
 ====================================================== */
 
 /**
- * Get all complaints
+ * Get All Reports (with filters)
+ * GET /api/reports?status=pending&reason=payment
  */
 router.get(
     "/",
@@ -52,13 +66,25 @@ router.get(
 );
 
 /**
- * Update complaint status (in_review / resolved / rejected)
+ * Update Report Status
+ * PUT /api/reports/:id
  */
 router.put(
     "/:id",
     userAuth,
     allowRoles("Admin", "ProviderManager"),
     updateReportStatus
+);
+
+/**
+ * Delete Report (Admin only)
+ * DELETE /api/reports/:id
+ */
+router.delete(
+    "/:id",
+    userAuth,
+    allowRoles("Admin"),
+    deleteReport
 );
 
 export default router;

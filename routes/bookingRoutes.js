@@ -14,6 +14,7 @@ import {
     cancelBooking,
     getUserBookings,
     getProviderBookings,
+    getMyCompletedBookings,
 } from "../controllers/bookingController.js";
 
 const router = express.Router();
@@ -87,3 +88,8 @@ router.put(
 );
 
 export default router;
+router.get(
+    "/my-completed",
+    userAuth,
+    getMyCompletedBookings
+);

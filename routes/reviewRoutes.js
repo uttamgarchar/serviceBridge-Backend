@@ -15,19 +15,13 @@ const router = express.Router();
    USER ROUTES
 ====================================================== */
 
-/**
- * Add review (after completed booking)
- */
 router.post(
-    "/reviews",
+    "/add",
     userAuth,
     allowRoles("User"),
     addReview
 );
 
-/**
- * Delete my review
- */
 router.delete(
     "/:id",
     userAuth,
@@ -39,9 +33,6 @@ router.delete(
    PUBLIC ROUTES
 ====================================================== */
 
-/**
- * Get provider reviews (public, non-flagged)
- */
 router.get(
     "/provider/:providerId",
     getProviderReviews
@@ -51,9 +42,6 @@ router.get(
    ADMIN / MANAGER ROUTES
 ====================================================== */
 
-/**
- * Flag fake / abusive review
- */
 router.put(
     "/flag/:id",
     userAuth,
