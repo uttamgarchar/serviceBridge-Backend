@@ -26,7 +26,7 @@ router.post(
 router.get(
     "/",
     userAuth,
-    allowRoles("Admin"),
+    allowRoles("Admin", "User"),
     getAllCoupons
 );
 

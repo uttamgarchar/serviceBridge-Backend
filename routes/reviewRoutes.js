@@ -35,6 +35,7 @@ router.delete(
 
 router.get(
     "/provider/:providerId",
+    allowRoles("serviceProvider", "ProviderManager", "Admin"),
     getProviderReviews
 );
 
